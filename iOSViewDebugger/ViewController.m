@@ -24,7 +24,6 @@
 	// Do any additional setup after loading the view, typically from a nib.
 	
 	self.debugger = [[UIViewDebugger alloc] init];
-	
 	[self.debugger debugSubviews:self.view];
 }
 
