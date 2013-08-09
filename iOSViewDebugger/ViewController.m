@@ -8,7 +8,11 @@
 
 #import "ViewController.h"
 
+#import "UIViewDebugger.h"
+
 @interface ViewController ()
+
+	@property (nonatomic, strong) UIViewDebugger *debugger;
 
 @end
 
@@ -18,6 +22,10 @@
 {
     [super viewDidLoad];
 	// Do any additional setup after loading the view, typically from a nib.
+	
+	self.debugger = [[UIViewDebugger alloc] init];
+	
+	[self.debugger debugSubviews:self.view];
 }
 
 - (void)didReceiveMemoryWarning

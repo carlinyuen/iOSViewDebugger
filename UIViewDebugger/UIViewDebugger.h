@@ -11,6 +11,12 @@
 
 @interface UIViewDebugger : NSObject
 
+	/** Background color for debugViews, default is 0x8888FF33 */
+	@property (nonatomic, strong) UIColor *backgroundColor;
+
+	/** Border color for debugViews, default is 0x0000FF50 */
+	@property (nonatomic, strong) UIColor *borderColor;
+
 	/** @brief Recursive call to go through all subviews and create DebugViews
 			to display the view frame and details
 		@param view UIView you want to debug with all its subviews

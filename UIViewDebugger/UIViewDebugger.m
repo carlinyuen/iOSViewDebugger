@@ -11,9 +11,31 @@
 
 #import <QuartzCore/QuartzCore.h>
 
+
+#pragma mark - DebugView
+
+@interface DebugView : UIView
+
+@end
+
+@implementation DebugView
+
+
+@end
+
+
+#pragma mark - UIViewDebugger
+
 @interface UIViewDebugger ()
 
+	/** @brief Container for debugViews to keep track of them */
 	@property (nonatomic, strong) NSMutableArray *debugViews;
+
+	/** Default background color for debugViews 0x8888FF33 */
+	@property (nonatomic, strong) UIColor *defaultBackgroundColor;
+
+	/** Default border color for debugViews 0x0000FF50 */
+	@property (nonatomic, strong) UIColor *defaultBorderColor;
 
 @end
 
@@ -23,8 +45,17 @@
 - (id)init
 {
     self = [super init];
-    if (self) {
+    if (self)
+	{
 		_debugViews = [[NSMutableArray alloc] init];
+		
+		// Colors
+		_defaultBackgroundColor = [UIColor
+			colorWithRed:0.5 green:0.5 blue:1.0 alpha:.2];
+		_defaultBorderColor = [UIColor
+			colorWithRed:0.0 green:0.0 blue:1.0 alpha:.3];
+		_backgroundColor = _defaultBackgroundColor;
+		_borderColor = _defaultBorderColor;
     }
     return self;
 }
@@ -40,7 +71,7 @@
 {
 	for (UIView* subview in view.subviews)
 	{
-		[self displayViewFrame:subview onView:(UIView*)view];
+		[self addDebugView:subview onView:(UIView*)view];
 		
 		if (subview.subviews.count) {
 			[self debugSubviews:subview];
@@ -49,11 +80,11 @@
 }
 
 /** @brief Creates a debug view to display with the view's frame */
-- (void)displayViewFrame:(UIView*)view onView:(UIView*)base
+- (void)addDebugView:(UIView*)view onView:(UIView*)base
 {
 	UIView* debugView = [[UIView alloc] initWithFrame:view.frame];
-	debugView.backgroundColor = [UIColor colorWithRed:0.5 green:1.0 blue:0.5 alpha:.2];
-	debugView.layer.borderColor = [[UIColor colorWithRed:0 green:1 blue:0 alpha:.3] CGColor];
+	debugView.backgroundColor = self.backgroundColor;
+	debugView.layer.borderColor = self.borderColor.CGColor;
 	debugView.layer.borderWidth = 1;
 	
 	[base addSubview:debugView];
@@ -69,7 +100,35 @@
 	[self.debugViews removeAllObjects];
 }
 
+/** @brief Resets any settings on debugViews */
+- (void)redrawDebugViews
+{
+	for (DebugView *debugView in self.debugViews) {
+		debugView.backgroundColor = self.backgroundColor;
+		debugView.layer.borderColor = self.borderColor.CGColor;
+	}
+}
+
+
 #pragma mark - Data Management
+
+/** @brief When user changes background color, need to refresh all debugViews */
+- (void)setBackgroundColor:(UIColor *)backgroundColor
+{
+	_backgroundColor = (backgroundColor)
+		? backgroundColor : self.defaultBackgroundColor;
+		
+	[self redrawDebugViews];
+}
+
+/** @brief When user changes border color, need to refresh all debugViews */
+- (void)setBorderColor:(UIColor *)borderColor
+{
+	_borderColor = (borderColor)
+		? borderColor : self.defaultBorderColor;
+		
+	[self redrawDebugViews];
+}
 
 
 #pragma mark - Utilty Functions
