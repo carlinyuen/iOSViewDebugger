@@ -34,4 +34,32 @@
     // Dispose of any resources that can be recreated.
 }
 
+
+#pragma mark - UITableViewDataSource
+
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
+    return 3;
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    return section + 1;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+
+	NSString *cellID = @"Cell";
+    
+	UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:cellID];
+    
+    if (!cell) {
+		cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"Cell"];
+    }
+	
+	cell.textLabel.text = [NSString stringWithFormat:@"Row %i", indexPath.row];
+	
+    return cell;
+}
+
+
 @end
