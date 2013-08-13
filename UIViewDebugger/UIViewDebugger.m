@@ -17,18 +17,14 @@
 
 	#define FONT_SIZE_LABEL 9
 
+	#define NOTIFICATION_NAME @"UIViewDebugger_Notification"
+
 #pragma mark - DebugView
 
 @interface DebugView : UIView
 
 	/** Keep track of view we're tracking */
 	@property (nonatomic, strong) UIView *referenceView;
-
-	/** For extra information */
-	@property (nonatomic, strong) UITextView *infoPanel;
-
-	/** Refresh info panel */
-	- (void)refreshView;
 
 @end
 
@@ -44,47 +40,32 @@
 		// Settings
 		_referenceView = view;
 		self.layer.borderWidth = 1;
-		
-		// Info panel
-		frame.origin.x = frame.origin.y = 0;
-		_infoPanel = [[UITextView alloc] initWithFrame:frame];
-		_infoPanel.font = [UIFont fontWithName:@"Courier-Bold" size:FONT_SIZE_LABEL];
-		_infoPanel.textAlignment = NSTextAlignmentRight;
-		_infoPanel.backgroundColor = [self.backgroundColor colorWithAlphaComponent:CGColorGetAlpha(self.backgroundColor.CGColor) + 0.1];
-		
-		[self refreshView];
 	}
 	return self;
 }
 
-/** Refresh info panel */
-- (void)refreshView
+/** @brief Override method so we can let the debugger know to clear the selected view */
+- (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
 {
-	UIColor *color = [UIColor colorWithCGColor:self.layer.borderColor];
-	self.infoPanel.textColor = color;
-	self.infoPanel.backgroundColor = [self.backgroundColor colorWithAlphaComponent:CGColorGetAlpha(self.backgroundColor.CGColor) + 0.1];
-	self.infoPanel.text = [NSString stringWithFormat:
-		@"origin: (%.2f, %.2f)\nsize: %.2f x %.2f\nsubviews: %i",
-		self.referenceView.frame.origin.x,
-		self.referenceView.frame.origin.y,
-		self.referenceView.frame.size.width,
-		self.referenceView.frame.size.height,
-		self.referenceView.subviews.count];
+	// Tell debugger to clear selected view
+	[[NSNotificationCenter defaultCenter]
+		postNotificationName:NOTIFICATION_NAME
+		object:nil];
 }
 
-/** @brief Override method so we can find out when view is hit, but still allow touches through */
+/** @brief Override method so allow touches through */
 - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event
 {
-	[self.infoPanel removeFromSuperview];	// Hide info panel
-	
-	// Show info if tapped
-	if (CGRectContainsPoint(self.frame, point)) {
-		[self addSubview:self.infoPanel];
+	if ([super pointInside:point withEvent:event]) {
+		[[NSNotificationCenter defaultCenter]
+			postNotificationName:NOTIFICATION_NAME
+			object:self];
 	}
-
+	
     // UIView will be "transparent" for touch events if we return NO
     return NO;		// Allow touches through
 }
+
 
 @end
 
@@ -93,7 +74,7 @@
 
 @interface UIViewDebugger ()
 
-	/** @brief Container for debugViews to keep track of them */
+	/** Container for debugViews to keep track of them */
 	@property (nonatomic, strong) NSMutableArray *debugViews;
 
 	/** Default background color for debugViews 0x8888FF33 */
@@ -101,6 +82,12 @@
 
 	/** Default border color for debugViews 0x0000FF50 */
 	@property (nonatomic, strong) UIColor *defaultBorderColor;
+
+	/** Panel to display information about tapped view */
+	@property (nonatomic, strong) UITextView *infoPanel;
+
+	/** Keep track of selected view */
+	@property (nonatomic, strong) UIView *selectedView;
 
 @end
 
@@ -115,6 +102,19 @@
 		// Storage
 		_debugViews = [[NSMutableArray alloc] init];
 		
+		// Info panel
+		_infoPanel = [[UITextView alloc] initWithFrame:CGRectMake(
+			0, 0, 150, 64
+		)];
+		_infoPanel.font = [UIFont fontWithName:@"Courier-Bold" size:FONT_SIZE_LABEL];
+		_infoPanel.textAlignment = NSTextAlignmentRight;
+		_infoPanel.backgroundColor = [self.backgroundColor colorWithAlphaComponent:CGColorGetAlpha(self.backgroundColor.CGColor) + 0.1];
+	
+		// So you can move it around
+		UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(infoPanelPanned:)];
+		pan.delaysTouchesBegan = false;
+		[_infoPanel addGestureRecognizer:pan];
+		
 		// Colors
 		_defaultBackgroundColor = [UIColor
 			colorWithRed:0.5 green:0.5 blue:1.0 alpha:.2];
@@ -122,8 +122,20 @@
 			colorWithRed:0.0 green:0.0 blue:1.0 alpha:.3];
 		_backgroundColor = _defaultBackgroundColor;
 		_borderColor = _defaultBorderColor;
+		
+		// Keeping track of selected view
+		_selectedView = nil;
+		[[NSNotificationCenter defaultCenter] addObserver:self
+			selector:@selector(notificationPosted:)
+			name:NOTIFICATION_NAME object:nil];
     }
     return self;
+}
+
+/** @brief Cleanup */
+- (void)dealloc
+{
+	[[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 
@@ -177,10 +189,33 @@
 {
 	for (DebugView *debugView in self.debugViews)
 	{
-		[debugView refreshView];
 		debugView.backgroundColor = self.backgroundColor;
 		debugView.layer.borderColor = self.borderColor.CGColor;
 	}
+}
+
+/** @brief Refresh info panel with new information */
+- (void)refreshInfoPanelWithView:(UIView*)view
+{
+	// Get color so we can highlight the selected view
+	UIColor *color = [UIColor colorWithCGColor:self.infoPanel.layer.borderColor];
+	self.infoPanel.textColor = color;
+	self.infoPanel.backgroundColor = [self.backgroundColor
+		colorWithAlphaComponent:
+			CGColorGetAlpha(self.backgroundColor.CGColor) + 0.5];
+	
+	// Reset frame
+	CGRect frame = self.infoPanel.frame;
+	frame.origin.x = frame.origin.y = 0;
+	self.infoPanel.frame = frame;
+
+	// Set text
+	frame = view.frame;
+	self.infoPanel.text = [NSString stringWithFormat:
+		@"origin: (%.2f, %.2f)\nsize: %.2f x %.2f\nsubviews: %i",
+		frame.origin.x, frame.origin.y,
+		frame.size.width, frame.size.height,
+		view.subviews.count];
 }
 
 
@@ -210,5 +245,31 @@
 
 #pragma mark - Delegates
 
+/** @brief When DebugView is tapped */
+- (void)notificationPosted:(NSNotification *)note
+{
+	NSLog(@"notificationPosted: %@", note);
+
+	if (note.object)
+	{
+		self.selectedView = note.object;
+		[self refreshInfoPanelWithView:self.selectedView];
+		[self.selectedView addSubview:self.infoPanel];
+	}
+	else	// No debugview tapped
+	{
+		[self.infoPanel removeFromSuperview];
+		self.selectedView = nil;
+	}
+}
+
+/** @brief Letting the info panel be moved */
+- (void)infoPanelPanned:(UIPanGestureRecognizer *)pan
+{
+	if (self.selectedView)
+	{
+		self.infoPanel.center = [pan translationInView:self.selectedView];
+	}
+}
 
 @end
